@@ -1,0 +1,1172 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leo y Escribo: Aventura de los Campos Semánticos</title>
+    <style>
+        :root {
+            --azul-electrico: #00e5ff;
+            --verde-menta: #00ff88;
+            --amarillo-suave: #e0f7fa;
+            --morado: #7000ff;
+            --morado-oscuro: #12002e;
+            --morado-fondo: #0a001f;
+            --blanco: #ffffff;
+            --gris-claro: #1f153a;
+            --texto-claro: #e3dfff;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            background-color: var(--morado-fondo);
+            color: var(--texto-claro);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+        }
+
+        /* BARRA DE ESTADO SUPERIOR (HUD) */
+        .hud-bar {
+            background: rgba(18, 0, 46, 0.85);
+            border-bottom: 2px solid var(--azul-electrico);
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 4px 20px rgba(0, 229, 255, 0.2);
+        }
+
+        .hud-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+
+        .vidas-container {
+            color: #ff2a6d;
+            font-size: 1.4rem;
+            letter-spacing: 2px;
+        }
+
+        .score-box {
+            color: var(--verde-menta);
+            text-shadow: 0 0 8px var(--verde-menta);
+        }
+
+        .timer-box {
+            color: #ffad00;
+        }
+
+        /* CONTENEDOR PRINCIPAL */
+        .game-container {
+            flex: 1;
+            max-width: 1000px;
+            width: 100%;
+            margin: 20px auto;
+            padding: 20px;
+        }
+
+        /* BARRA DE PROGRESO DE NIVELES */
+        .progress-timeline {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 30px;
+            position: relative;
+            background: rgba(31, 21, 58, 0.5);
+            padding: 15px;
+            border-radius: 50px;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .progress-line-bg {
+            position: absolute;
+            top: 50%;
+            left: 40px;
+            right: 40px;
+            height: 4px;
+            background: #331b63;
+            transform: translateY(-50%);
+            z-index: 1;
+        }
+
+        .progress-line-fill {
+            position: absolute;
+            top: 50%;
+            left: 40px;
+            height: 4px;
+            background: linear-gradient(90deg, var(--morado), var(--azul-electrico));
+            transform: translateY(-50%);
+            z-index: 2;
+            transition: width 0.5s ease;
+            width: 0%;
+        }
+
+        .step-node {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: var(--morado-oscuro);
+            border: 3px solid #331b63;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.85rem;
+            z-index: 3;
+            transition: all 0.4s ease;
+            color: #8c7bb3;
+            position: relative;
+        }
+
+        .step-node.active {
+            border-color: var(--azul-electrico);
+            color: var(--blanco);
+            box-shadow: 0 0 15px var(--azul-electrico);
+            background: var(--morado);
+        }
+
+        .step-node.completed {
+            border-color: var(--verde-menta);
+            color: var(--morado-oscuro);
+            background: var(--verde-menta);
+        }
+
+        .step-label {
+            position: absolute;
+            bottom: -22px;
+            font-size: 0.7rem;
+            white-space: nowrap;
+            color: #8c7bb3;
+            font-weight: 600;
+        }
+
+        .step-node.active .step-label {
+            color: var(--azul-electrico);
+        }
+
+        /* PANTALLAS (PANELES) */
+        .screen-panel {
+            background: rgba(18, 0, 46, 0.75);
+            border: 2px solid rgba(112, 0, 255, 0.3);
+            border-radius: 24px;
+            padding: 35px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            display: none;
+            animation: fadeIn 0.5s ease forwards;
+        }
+
+        .screen-panel.active {
+            display: block;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(15px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* ESTILOS DE TEXTO */
+        h1 {
+            font-size: 2.3rem;
+            color: var(--blanco);
+            text-shadow: 0 0 15px rgba(0, 229, 255, 0.6);
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        h2 {
+            font-size: 1.8rem;
+            color: var(--azul-electrico);
+            margin-bottom: 20px;
+            border-bottom: 1px solid rgba(0, 229, 255, 0.2);
+            padding-bottom: 8px;
+        }
+
+        h3 {
+            color: var(--verde-menta);
+            margin-top: 15px;
+            margin-bottom: 10px;
+        }
+
+        p {
+            line-height: 1.6;
+            margin-bottom: 15px;
+            font-size: 1.05rem;
+        }
+
+        /* COMPONENTES DIDÁCTICOS */
+        .didactic-box {
+            background: rgba(112, 0, 255, 0.15);
+            border-left: 5px solid var(--morado);
+            padding: 15px;
+            border-radius: 0 12px 12px 0;
+            margin: 15px 0;
+        }
+
+        .didactic-box.error-box {
+            border-left-color: #ff2a6d;
+            background: rgba(255, 42, 109, 0.1);
+        }
+
+        .didactic-box.success-box {
+            border-left-color: var(--verde-menta);
+            background: rgba(0, 255, 136, 0.1);
+        }
+
+        .example-list {
+            background: rgba(255,255,255,0.05);
+            padding: 15px 25px;
+            border-radius: 12px;
+            margin: 10px 0;
+            list-style-type: square;
+        }
+
+        /* BOTONES */
+        .btn-container {
+            display: flex;
+            gap: 15px;
+            margin-top: 25px;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, var(--morado), #4a00b8);
+            color: var(--blanco);
+            border: none;
+            padding: 14px 28px;
+            font-size: 1rem;
+            font-weight: bold;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            box-shadow: 0 4px 15px rgba(112, 0, 255, 0.4);
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(112, 0, 255, 0.6);
+            filter: brightness(1.1);
+        }
+
+        .btn-secondary {
+            background: rgba(31, 21, 58, 0.8);
+            border: 1px solid var(--azul-electrico);
+            box-shadow: none;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(0, 229, 255, 0.2);
+            box-shadow: 0 0 15px rgba(0, 229, 255, 0.3);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #00b862, var(--verde-menta));
+            color: var(--morado-oscuro);
+            box-shadow: 0 4px 15px rgba(0, 255, 136, 0.3);
+        }
+
+        /* OPCIONES */
+        .options-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin: 20px 0;
+        }
+
+        @media (max-width: 600px) {
+            .options-grid { grid-template-columns: 1fr; }
+            .hud-bar { flex-direction: column; gap: 10px; text-align: center;}
+            .progress-timeline { display: none; }
+        }
+
+        .option-card {
+            background: #190a3a;
+            border: 2px solid rgba(255,255,255,0.1);
+            border-radius: 14px;
+            padding: 18px;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            font-size: 1.05rem;
+        }
+
+        .option-card:hover {
+            border-color: var(--azul-electrico);
+            background: rgba(0, 229, 255, 0.08);
+            transform: translateX(4px);
+        }
+
+        .option-card.selected {
+            border-color: var(--morado);
+            background: rgba(112, 0, 255, 0.2);
+        }
+
+        /* SOPA DE LETRAS EXPANDIDA (MISIÓN 2) */
+        .wordsearch-layout {
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+            margin: 20px 0;
+        }
+
+        .grid-container {
+            background: #12052a;
+            padding: 15px;
+            border-radius: 16px;
+            border: 2px solid rgba(112,0,255,0.3);
+            display: grid;
+            grid-template-columns: repeat(10, 38px);
+            grid-template-rows: repeat(10, 38px);
+            gap: 5px;
+            justify-content: center;
+            margin: 0 auto;
+        }
+
+        .letter-cell {
+            width: 38px;
+            height: 38px;
+            background: #221447;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.1rem;
+            cursor: pointer;
+            user-select: none;
+            transition: all 0.15s ease;
+        }
+
+        .letter-cell:hover { background: var(--morado); }
+        .letter-cell.selected {
+            background: var(--azul-electrico);
+            color: var(--morado-oscuro);
+            box-shadow: 0 0 10px var(--azul-electrico);
+        }
+        .letter-cell.found {
+            background: var(--verde-menta);
+            color: var(--morado-oscuro);
+        }
+
+        .word-list-box {
+            flex: 1;
+            min-width: 250px;
+            background: rgba(255,255,255,0.03);
+            padding: 20px;
+            border-radius: 16px;
+            border: 1px solid rgba(255,255,255,0.05);
+        }
+
+        .word-item {
+            padding: 8px 12px;
+            margin: 6px 0;
+            border-radius: 6px;
+            background: rgba(255,255,255,0.05);
+            display: flex;
+            justify-content: space-between;
+            font-weight: 600;
+        }
+
+        .word-item.found {
+            text-decoration: line-through;
+            color: var(--verde-menta);
+            background: rgba(0, 255, 136, 0.1);
+        }
+
+        /* DRAG AND DROP - MISIÓN 4 */
+        .drag-zone {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            padding: 20px;
+            background: rgba(0,0,0,0.2);
+            border-radius: 14px;
+            min-height: 80px;
+            margin-bottom: 25px;
+            border: 1px dashed rgba(255,255,255,0.1);
+        }
+
+        .drag-item {
+            background: linear-gradient(135deg, #2b1a54, #1a0d36);
+            border: 1px solid var(--azul-electrico);
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: grab;
+            font-weight: 600;
+            user-select: none;
+        }
+
+        .drop-targets-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .drop-box {
+            background: #15062e;
+            border: 2px dashed rgba(112, 0, 255, 0.4);
+            border-radius: 16px;
+            padding: 20px;
+            min-height: 160px;
+            transition: all 0.3s ease;
+        }
+
+        .drop-box.hover {
+            border-color: var(--verde-menta);
+            background: rgba(0, 255, 136, 0.05);
+        }
+
+        .drop-box h4 {
+            color: var(--azul-electrico);
+            margin-bottom: 12px;
+            text-align: center;
+        }
+
+        /* FORMULARIOS */
+        .form-group { margin-bottom: 20px; }
+        label { display: block; margin-bottom: 8px; font-weight: 600; color: var(--azul-electrico); }
+        input[type="text"], select, textarea {
+            width: 100%; background: #190d36; border: 2px solid rgba(112,0,255,0.4);
+            border-radius: 10px; padding: 12px; color: var(--blanco); font-size: 1rem;
+        }
+
+        .hint-badge-box { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+        .hint-badge { background: #2d1654; border: 1px solid var(--morado); padding: 4px 10px; border-radius: 20px; font-size: 0.85rem; }
+
+        /* REVISIÓN (CHECKLIST) */
+        .checklist-item {
+            display: flex; align-items: center; gap: 12px; padding: 12px;
+            background: rgba(255,255,255,0.02); margin: 8px 0; border-radius: 8px; cursor: pointer;
+        }
+        .checklist-item input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--verde-menta); }
+
+        /* CERTIFICADO */
+        .certificate-frame {
+            background: linear-gradient(135deg, #19053a, #0a001a);
+            border: 6px double var(--azul-electrico); padding: 40px; border-radius: 18px;
+            text-align: center; box-shadow: 0 0 40px rgba(0, 229, 255, 0.2); margin: 25px 0;
+        }
+        .cert-title { font-family: 'Georgia', serif; font-size: 2.2rem; color: var(--verde-menta); }
+        .cert-name { font-size: 1.8rem; font-weight: bold; color: var(--blanco); text-decoration: underline; margin: 15px 0; }
+        .secret-code { display: inline-block; background: rgba(0,229,255,0.1); border: 1px dashed var(--azul-electrico); padding: 8px 16px; font-family: monospace; font-size: 1.2rem; color: var(--azul-electrico); border-radius: 6px; }
+
+        /* TOAST NOTIFICACIÓN */
+        .feedback-toast {
+            position: fixed; bottom: 30px; right: 30px; padding: 15px 25px;
+            border-radius: 12px; font-weight: bold; z-index: 1000; display: none; box-shadow: 0 5px 15px rgba(0,0,0,0.4);
+        }
+
+        /* INSIGNIAS WALL */
+        .badge-wall { display: flex; gap: 15px; margin-top: 15px; flex-wrap: wrap; }
+        .badge-icon {
+            width: 70px; height: 70px; background: #1f113a; border: 2px solid rgba(255,255,255,0.1);
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            font-size: 1.8rem; position: relative; opacity: 0.3; transition: all 0.4s ease;
+        }
+        .badge-icon.unlocked { opacity: 1; border-color: var(--verde-menta); box-shadow: 0 0 12px var(--verde-menta); background: var(--morado); }
+        .badge-icon .badge-tip { position: absolute; bottom: -25px; font-size: 0.65rem; white-space: nowrap; background: rgba(0,0,0,0.8); padding: 2px 6px; border-radius: 4px; }
+
+        /* NUEVO CHATBOT ASISTENTE FLOTANTE PERMANENTE */
+        .chatbot-container {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            z-index: 999999;
+        }
+
+        #confetti-canvas {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none; z-index: 9999; display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <canvas id="confetti-canvas"></canvas>
+
+    <!-- BARRA HUD -->
+    <div class="hud-bar">
+        <div class="hud-item"><span id="mision-tag">📚 Aventura de Palabras</span></div>
+        <div class="hud-item">Vidas: <span id="life-display" class="vidas-container">❤️❤️❤️</span></div>
+        <div class="hud-item">Puntos: <span id="score-display" class="score-box">0</span></div>
+        <div class="hud-item">Tiempo: <span id="timer-display" class="timer-box">20:00</span></div>
+    </div>
+
+    <div class="game-container">
+        
+        <!-- TIMELINE -->
+        <div class="progress-timeline">
+            <div class="progress-line-bg"></div>
+            <div class="progress-line-fill" id="timeline-progress-fill"></div>
+            <div class="step-node active" data-step="0">🏁<span class="step-label">Inicio</span></div>
+            <div class="step-node" data-step="1">1<span class="step-label">Misión 1</span></div>
+            <div class="step-node" data-step="2">2<span class="step-label">Misión 2</span></div>
+            <div class="step-node" data-step="3">3<span class="step-label">Misión 3</span></div>
+            <div class="step-node" data-step="4">4<span class="step-label">Misión 4</span></div>
+            <div class="step-node" data-step="5">5<span class="step-label">Misión 5</span></div>
+            <div class="step-node" data-step="6">✍️<span class="step-label">Taller</span></div>
+            <div class="step-node" data-step="7">🔍<span class="step-label">Revisión</span></div>
+            <div class="step-node" data-step="8">🏆<span class="step-label">Final</span></div>
+        </div>
+
+        <!-- RECUADRO DE INSIGNIAS -->
+        <div style="margin-bottom: 20px; background: rgba(255,255,255,0.02); padding: 10px 20px; border-radius: 12px; border: 1px solid rgba(255,255,255,0.05)">
+            <span style="font-size: 0.9rem; font-weight: bold; color: var(--azul-electrico);">Tus Insignias Espaciales:</span>
+            <div class="badge-wall">
+                <div class="badge-icon" id="badge-det"><span class="badge-tip">Detective Semántico</span>🕵️‍♂️</div>
+                <div class="badge-icon" id="badge-exp"><span class="badge-tip">Explorador de Palabras</span>🚀</div>
+                <div class="badge-icon" id="badge-nar"><span class="badge-tip">Narrador Creativo</span>📖</div>
+                <div class="badge-icon" id="badge-esc"><span class="badge-tip">Escritor Experto</span>✍️</div>
+                <div class="badge-icon" id="badge-mae"><span class="badge-tip">Maestro de Palabras</span>👑</div>
+            </div>
+        </div>
+
+        <!-- SCREEN 0: INICIO -->
+        <div class="screen-panel active" id="panel-0">
+            <h1>Leo y Escribo:<br><span style="color: var(--azul-electrico)">Aventura de los Campos Semánticos</span></h1>
+            <p style="text-align: center; font-size: 1.2rem; margin-top: 10px; color: var(--amarillo-suave)">
+                Una ruta gamificada para pensar palabras, organizar ideas y escribir un cuento corto de forma futurista.
+            </p>
+            
+            <div class="didactic-box">
+                <h3>🚀 ¿Qué es esta aventura?</h3>
+                <p>¡Hola, tripulante espacial de las palabras! Te damos la bienvenida a un viaje donde aprenderás a agrupar palabras en constelaciones llamadas <strong>Campos Semánticos</strong>.</p>
+            </div>
+
+            <div class="didactic-box" style="border-left-color: var(--azul-electrico)">
+                <h3>🎯 Propósito de Aprendizaje</h3>
+                <p>Aprenderás a reconocer qué es un campo semántico, identificar elementos comunes, extraer palabras intrusas y utilizar todo ese vocabulario para redactar un cuento estructurado en <strong>Inicio, Nudo y Desenlace</strong>.</p>
+            </div>
+
+            <div class="form-group" style="margin-top: 25px;">
+                <label for="student-name-input">✍️ Escribe tu Nombre de Tripulante aquí:</label>
+                <input type="text" id="student-name-input" placeholder="Ej. Valeria Mendoza o Mateo Silva...">
+            </div>
+
+            <div class="btn-container">
+                <button class="btn btn-success" onclick="startAdventure()">✨ Iniciar Aventura Estelar</button>
+                <button class="btn btn-secondary" onclick="toggleAudio(true)">🔊 Activar Sonidos</button>
+                <button class="btn btn-secondary" onclick="toggleAudio(false)">🔇 Desactivar</button>
+            </div>
+        </div>
+
+        <!-- SCREEN 1: MINILECCIÓN 1 + MISIÓN 1 -->
+        <div class="screen-panel" id="panel-1">
+            <h2>Minilección 1: ¿Qué es un Campo Semántico?</h2>
+            <p>Un <strong>Campo Semántico</strong> es un conjunto de palabras diferentes que se relacionan entre sí porque comparten una temática o un significado en común. Es decir las palabras de un campo semántico no significan lo mismo, pero se conectan porque pertenecen a una misma categoría.
+</p>
+            
+            <div class="didactic-box">
+                <strong>🌲 Ejemplo:</strong>
+                <p>Si pensamos en el campo semántico de la <strong>Naturaleza</strong>, podemos agrupar:</p>
+                <ul class="example-list"><li>Árbol</li><li>Río</li><li>Flor</li><li>Montaña</li><li>Lluvia</li></ul>
+            </div>
+
+            <h3>🎯 Misión 1: Escáner de Constelaciones</h3>
+            <p>El ordenador central ha detectado la siguiente transmisión de datos flotando en el espacio:</p>
+            <div style="background: rgba(255,255,255,0.07); padding: 15px; text-align: center; font-size: 1.3rem; font-weight: bold; border-radius: 12px; color: var(--azul-electrico);">
+                "Lápiz, Cuaderno, Tablero, Profesor, Maleta, Diccionario"
+            </div>
+            
+            <p style="margin-top: 15px;"><strong>Pregunta:</strong> ¿A qué campo semántico universal pertenecen correctamente estos elementos?</p>
+            
+            <div class="options-grid">
+                <div class="option-card" onclick="selectOption(this, 1, 'A')">A) Los Alimentos Espaciales</div>
+                <div class="option-card" onclick="selectOption(this, 1, 'B')">B)  La Escuela</div>
+                <div class="option-card" onclick="selectOption(this, 1, 'C')">C) los Animales Salvajes</div>
+                <div class="option-card" onclick="selectOption(this, 1, 'D')">D)  Los de Medios de Transporte</div>
+            </div>
+
+            <div class="btn-container">
+                <button class="btn btn-secondary" onclick="showHint(1, 'Pista: Es el lugar al que asistes a aprender y donde compartes con tus maestros.')">💡 Solicitar Pista</button>
+                <button class="btn" onclick="checkMission1()">📡 Validar Respuesta</button>
+            </div>
+        </div>
+
+        <!-- SCREEN 2: ACTVIDAD DE SOPA DE LETRAS NÚMERO 2 (RE-UBICADA Y EXPANDIDA) -->
+        <div class="screen-panel" id="panel-2">
+            <h2>🎯 Misión 2: Matriz de Búsqueda Estelar Expandida</h2>
+            <p> <strong>clic sobre las letras</strong> para encontrar las <strong>8 palabras ocultas</strong> pertenecientes al campo semántico de los <strong>Juegos y Juguetes</strong>.</p>
+            
+            <div class="wordsearch-layout">
+                <div class="grid-container" id="wordsearch-grid">
+                    <!-- Generado dinámicamente por JavaScript -->
+                </div>
+
+                <div class="word-list-box">
+                    <h3>🔍 Encuentra estas 8 palabras:</h3>
+                    <div class="word-item" id="w-dado">DADO 🎲</div>
+                    <div class="word-item" id="w-yoyo">YOYO 🪀</div>
+                    <div class="word-item" id="w-balon">BALON ⚽</div>
+                    <div class="word-item" id="w-titeres">TITERES 🎭</div>
+                    <div class="word-item" id="w-carro">CARRO 🚗</div>
+                    <div class="word-item" id="w-trompo">TROMPO 🪀</div>
+                    <div class="word-item" id="w-patin">PATIN 🛼</div>
+                    <div class="word-item" id="w-lego">LEGO 🧱</div>
+                </div>
+            </div>
+
+            <div class="btn-container">
+                <button class="btn" onclick="checkMission2()">🛰️ Validar Sopa de Letras</button>
+            </div>
+        </div>
+
+        <!-- SCREEN 3: MINILECCIÓN 2 + MISIÓN 3 (MEJOR INICIO) -->
+        <div class="screen-panel" id="panel-3">
+            <h2>Minilección 2: Del Campo Semántico al Cuento</h2>
+            <p>Para construir una gran historia, necesitamos organizar nuestro relato en las tres partes obligatorias de la estructura narrativa:</p>
+            <div class="didactic-box">
+                <ul style="margin-left: 20px;">
+                    <li><strong>Inicio:</strong> Presentación de personajes, lugar y tiempo.</li>
+                    <li><strong>Nudo:</strong> Aparición del problema o conflicto principal.</li>
+                    <li><strong>Desenlace:</strong> Solución del conflicto y cierre.</li>
+                </ul>
+            </div>
+
+            <h3>🎯 Misión 3: El Mejor Inicio de la Galaxia</h3>
+            <p><strong>Objetivo:</strong> Selecciona el mejor arranque narrativo para una crónica que use intensamente las palabras clave del campo semántico de la <strong>Naturaleza</strong>.</p>
+
+            <div class="options-grid" style="grid-template-columns: 1fr;">
+                <div class="option-card" onclick="selectOption(this, 3, 'A')">
+                    <strong>Opción A:</strong> "El robot encendió sus engranajes metálicos en la fábrica cibernética de alta tecnología fría..."
+                </div>
+                <div class="option-card" onclick="selectOption(this, 3, 'B')">
+                    <strong>Opción B:</strong> "En medio de un majestuoso <u>árbol</u> centenario, donde el <u>río</u> susurraba agua cristalina y la <u>lluvia</u> caía sobre una hermosa <u>flor</u> de la <u>montaña</u>, vivía un duendecillo llamado Sol..."
+                </div>
+                <div class="option-card" onclick="selectOption(this, 3, 'C')">
+                    <strong>Opción C:</strong> "Compré una hamburguesa con papas fritas y una gaseosa gigante mientras jugaba videojuegos en mi silla..."
+                </div>
+            </div>
+
+            <div class="btn-container">
+                <button class="btn btn-secondary" onclick="showHint(3, 'Pista: Busca la opción que incluya árbol, río, lluvia, flor y montaña.')">💡 Solicitar Pista</button>
+                <button class="btn" onclick="checkMission3()">🔮 Sellar Inicio de Historia</button>
+            </div>
+        </div>
+
+        <!-- SCREEN 4: MISIÓN 4 (DRAG & DROP) -->
+        <div class="screen-panel" id="panel-4">
+            <h2>🎯 Misión 4: Clasificador Cuántico de Materia</h2>
+            <p>Usa tu ratón o pantalla táctil para <strong>arrastrar cada palabra</strong> y soltarla dentro de la caja temática correspondiente.</p>
+            
+            <div class="drag-zone" id="source-drag-zone">
+                <div class="drag-item" draggable="true" id="d-perro" data-cat="animales">Perro</div>
+                <div class="drag-item" draggable="true" id="d-gato" data-cat="animales">Gato</div>
+                <div class="drag-item" draggable="true" id="d-loro" data-cat="animales">Loro</div>
+                <div class="drag-item" draggable="true" id="d-manzana" data-cat="alimentos">Manzana</div>
+                <div class="drag-item" draggable="true" id="d-platano" data-cat="alimentos">Plátano</div>
+                <div class="drag-item" draggable="true" id="d-pizza" data-cat="alimentos">Pizza</div>
+            </div>
+
+            <div class="drop-targets-container">
+                <div class="drop-box" id="drop-cat-animales" data-accept="animales">
+                    <h4>🐾 Campo: Animales</h4>
+                </div>
+                <div class="drop-box" id="drop-cat-alimentos" data-accept="alimentos">
+                    <h4>🍎 Campo: Alimentos</h4>
+                </div>
+            </div>
+
+            <div class="btn-container">
+                <button class="btn btn-secondary" onclick="resetDragMission()">🔄 Reiniciar Contenedores</button>
+                <button class="btn" onclick="checkMission4()">🛡️ Verificar Clasificación</button>
+            </div>
+        </div>
+
+        <!-- SCREEN 5: MINILECCIÓN 3 + MISIÓN 5 (PALABRA INTRUSA) -->
+        <div class="screen-panel" id="panel-5">
+            <h2>Minilección 3: Palabras Intrusas e Infiltrados</h2>
+            <p>Una <strong>palabra intrusa</strong> es un término que se ha infiltrado en una categoría a la que no pertenece en absoluto por su significado.</p>
+
+            <h3>🎯 Misión 5: El Intruso Espacial</h3>
+            <p>Analiza el siguiente cargamento de suministros. Uno de ellos no encaja:</p>
+            <div style="background: rgba(255,255,255,0.07); padding: 15px; text-align: center; font-size: 1.3rem; font-weight: bold; border-radius: 12px; color: #ff2a6d; margin: 15px 0;">
+                🍉 Fruta &nbsp;|&nbsp; 🍲 Sopa &nbsp;|&nbsp; 🍚 Arroz &nbsp;|&nbsp; 📘 Cuaderno
+            </div>
+
+            <p><strong>Pregunta:</strong> ¿Cuál es la palabra intrusa que debes expulsar por la compuerta?</p>
+
+            <div class="options-grid">
+                <div class="option-card" onclick="selectOption(this, 5, 'fruta')">A) Fruta</div>
+                <div class="option-card" onclick="selectOption(this, 5, 'sopa')">B) Sopa</div>
+                <div class="option-card" onclick="selectOption(this, 5, 'arroz')">C) Arroz</div>
+                <div class="option-card" onclick="selectOption(this, 5, 'cuaderno')">D) Cuaderno</div>
+            </div>
+
+            <div class="btn-container">
+                <button class="btn btn-secondary" onclick="showHint(5, 'Pista: Tres de los elementos sirven para alimentarte. Uno sirve para escribir en clase.')">💡 Solicitar Pista</button>
+                <button class="btn" onclick="checkMission5()">🚀 Expulsar Intruso</button>
+            </div>
+        </div>
+
+        <!-- SCREEN 6: TALLER DE PRODUCCIÓN ESCRITA -->
+        <div class="screen-panel" id="panel-6">
+            <h2>✍️ Laboratorio de Redacción Creativa</h2>
+            <p>¡Es momento de poner a prueba tu pluma! Diseña y escribe un cuento corto estructurado.</p>
+            
+            <div style="background: rgba(112, 0, 255, 0.1); padding: 20px; border-radius: 16px; margin-bottom: 25px; border: 1px solid var(--morado)">
+                <div class="form-group">
+                    <label for="select-campo-taller">🪐 1. Elige tu Campo Semántico Inspirador:</label>
+                    <select id="select-campo-taller" onchange="updateTallerSuggestions()">
+                        <option value="">-- Selecciona una Constelación Temática --</option>
+                        <option value="Animales">🐾 Animales Domésticos y Salvajes</option>
+                        <option value="Naturaleza">🌲 Naturaleza y Ecosistemas</option>
+                        <option value="Escuela">🎒 Escuela y Convivencia Escolar</option>
+                        <option value="Familia">❤️ Familia y Hogar Amado</option>
+                        <option value="Alimentos">🍎 Alimentos y Nutrición Saludable</option>
+                        <option value="Juguetes">🧸 Juegos y Diversión</option>
+                    </select>
+                </div>
+
+                <div id="suggestions-box" style="display:none; margin-bottom: 15px;">
+                    <span style="font-size: 0.9rem; font-weight: bold; color: var(--verde-menta);">💡 Vocabulario sugerido para incluir en tu relato:</span>
+                    <div class="hint-badge-box" id="suggestions-badges-container"></div>
+                </div>
+            </div>
+
+            <div class="options-grid">
+                <div class="form-group">
+                    <label for="input-hero">🦸‍♂️ Personaje Principal:</label>
+                    <input type="text" id="input-hero" placeholder="Ej. El conejito veloz...">
+                </div>
+                <div class="form-group">
+                    <label for="input-sidekick">🤖 Personaje Secundario:</label>
+                    <input type="text" id="input-sidekick" placeholder="Ej. La hormiga sabia...">
+                </div>
+            </div>
+
+            <div class="options-grid">
+                <div class="form-group">
+                    <label for="input-place">🌌 Escenario / Lugar:</label>
+                    <input type="text" id="input-place" placeholder="Ej. Un bosque frondoso...">
+                </div>
+                <div class="form-group">
+                    <label for="input-time">⏰ Época / Tiempo:</label>
+                    <input type="text" id="input-time" placeholder="Ej. Hace muchos siglos...">
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="input-title">👑 Título de tu Cuento:</label>
+                <input type="text" id="input-title" placeholder="Dale un nombre llamativo...">
+            </div>
+
+            <div class="form-group">
+                <label for="textarea-inicio">🎬 Parte 1: El Inicio (Presentación):</label>
+                <textarea id="textarea-inicio" rows="3" placeholder="Había una vez... presenta los personajes y el lugar usando palabras de tu campo semántico."></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="textarea-nudo">⚡ Parte 2: El Nudo (El Conflicto o Problema):</label>
+                <textarea id="textarea-nudo" rows="3" placeholder="De repente, algo inesperado sucedió... introduce la dificultad principal."></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="textarea-desenlace">🎉 Parte 3: El Desenlace (Solución Final):</label>
+                <textarea id="textarea-desenlace" rows="3" placeholder="Finalmente... narra cómo se resolvió todo de forma feliz."></textarea>
+            </div>
+
+            <div class="form-group">
+                <label for="textarea-reflexion">🤔 Autorreflexión de Aprendizaje:</label>
+                <textarea id="textarea-reflexion" rows="2" placeholder="¿Qué aprendiste hoy sobre los campos semánticos?"></textarea>
+            </div>
+
+            <div class="btn-container">
+                <button class="btn btn-success" onclick="processTaller()">🚀 Guardar y Pasar a Revisión</button>
+            </div>
+        </div>
+
+        <!-- SCREEN 7: REVISIÓN (CHECKLIST) -->
+        <div class="screen-panel" id="panel-7">
+            <h2>🔍 Centro de Control y Calidad Literaria</h2>
+            <p>Antes de imprimir tu obra, marca cada casilla para asegurar la calidad de tu escrito.</p>
+            
+            <div style="margin: 20px 0;">
+                <div class="checklist-item" onclick="toggleCheck(this)"><input type="checkbox" id="check-1"> <span>Mi cuento tiene un título atractivo.</span></div>
+                <div class="checklist-item" onclick="toggleCheck(this)"><input type="checkbox" id="check-2"> <span>Presenté claramente a los personajes, tiempo y lugar en el inicio.</span></div>
+                <div class="checklist-item" onclick="toggleCheck(this)"><input type="checkbox" id="check-3"> <span>Utilicé con éxito términos pertenecientes al campo semántico seleccionado.</span></div>
+                <div class="checklist-item" onclick="toggleCheck(this)"><input type="checkbox" id="check-4"> <span>Se diferencia el Inicio, el Nudo y el Desenlace.</span></div>
+                <div class="checklist-item" onclick="toggleCheck(this)"><input type="checkbox" id="check-5"> <span>La historia tiene sentido claro.</span></div>
+                <div class="checklist-item" onclick="toggleCheck(this)"><input type="checkbox" id="check-6"> <span>Revisé con cuidado la ortografía y puntuación.</span></div>
+            </div>
+
+            <div class="btn-container">
+                <button class="btn btn-secondary" onclick="navigatePanel(6)">⬅️ Editar Cuento</button>
+                <button class="btn btn-success" onclick="finishAdventure()">🏆 Emitir Resultados</button>
+            </div>
+        </div>
+
+        <!-- SCREEN 8: RESULTADO FINAL -->
+        <div class="screen-panel" id="panel-8">
+            <h2>🏆 ¡Victoria Galáctica Completada!</h2>
+            <p>Has terminado el viaje de aprendizaje. Aquí tienes el reporte automático de tu obra y tu condecoración de honor.</p>
+            
+            <div id="compiled-story-box" style="background: rgba(255,255,255,0.04); padding: 25px; border-radius: 16px; border: 1px solid var(--azul-electrico); margin: 20px 0;"></div>
+
+            <!-- CERTIFICADO -->
+            <div class="certificate-frame" id="certificate-print-zone">
+                <div style="font-size: 3rem; margin-bottom: 10px;">🌟🎓🌟</div>
+                <div class="cert-title">CERTIFICADO DE EXCELENCIA SEMÁNTICA</div>
+                <p>Otorgado con orgullo al valiente tripulante:</p>
+                <div class="cert-name" id="cert-recipient-name">Estudiante Destacado</div>
+                <p>Por haber completado con éxito todas las misiones del OVA interactivo:</p>
+                <p style="font-weight: bold; color: var(--azul-electrico);">"Leo y Escribo: Aventura de los Campos Semánticos"</p>
+                
+                <div style="display: flex; justify-content: space-around; margin-top: 25px; font-size: 0.9rem; border-top: 1px dashed rgba(255,255,255,0.2); padding-top: 15px;">
+                    <div>🎯 Puntos: <span id="cert-score" style="color: var(--verde-menta); font-weight: bold;">0</span></div>
+                    <div>💖 Vidas Restantes: <span id="cert-lives" style="color:#ff2a6d; font-weight: bold;">3/3</span></div>
+                    <div>📅 Año: 2026</div>
+                </div>
+                <div><span class="secret-code" id="cert-secret-code">SEMANTICO-ORO-2026</span></div>
+            </div>
+
+            <div class="btn-container">
+                <button class="btn btn-success" onclick="downloadStory()">💾 Descargar cuento corto (TXT)</button>
+                <button class="btn" onclick="window.print()">🖨️ Imprimir Certificado</button>
+                <button class="btn btn-secondary" onclick="restartEntireGame()">🔄 Repetir Actividad</button>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- NOTIFICACIÓN TOAST -->
+    <div class="feedback-toast" id="toast-notif">Mensaje del Sistema</div>
+
+    <!-- CHATBOT SOLICITADO INTEGRADO PERMANENTE Y FIJO -->
+    <div class="chatbot-container">
+        <script src='https://cdn.jotfor.ms/agent/embedjs/019ec71e8de47353bca39a4570cdfac627fa/embed.js'></script>
+    </div>
+
+    <script>
+        // ESTADO GLOBAL
+        let gameState = {
+            currentStep: 0,
+            score: 0,
+            lives: 3,
+            timeLeft: 1200,
+            timerInterval: null,
+            audioEnabled: false,
+            studentName: "Tripulante anónimo",
+            selectedOptions: {},
+            insignias: { det: false, exp: false, nar: false, esc: false, mae: false },
+            draggedItemId: null
+        };
+
+        const sugerenciasCampos = {
+            "Animales": ["perro", "selva", "gato", "rugido", "león", "pájaro", "veterinario", "garras"],
+            "Naturaleza": ["árbol", "río", "flor", "montaña", "lluvia", "bosque", "viento", "hojas"],
+            "Escuela": ["cuaderno", "profesor", "lápiz", "tablero", "recreo", "libros", "tareas", "amigos"],
+            "Familia": ["mamá", "papá", "abuelos", "hermanos", "hogar", "amor", "abrazo", "cena"],
+            "Alimentos": ["manzana", "sopa", "frutas", "verduras", "arroz", "cocina", "saludable", "queso"],
+            "Juguetes": ["balón", "muñeca", "carro", "dados", "yoyo", "rompecabezas", "diversión", "parque"]
+        };
+
+        window.addEventListener('DOMContentLoaded', () => {
+            setupDragAndDrop();
+            buildWordSearch();
+        });
+
+        // REPRODUCTOR AUDIO NATIVO
+        let audioCtx = null;
+        function playSound(type) {
+            if (!gameState.audioEnabled) return;
+            try {
+                if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                let osc = audioCtx.createOscillator();
+                let gain = audioCtx.createGain();
+                osc.connect(gain); gain.connect(audioCtx.destination);
+                if (type === 'correct') {
+                    osc.type = 'triangle'; osc.frequency.setValueAtTime(523.25, audioCtx.currentTime);
+                    osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.1);
+                    gain.gain.setValueAtTime(0.2, audioCtx.currentTime); osc.start(); osc.stop(audioCtx.currentTime + 0.25);
+                } else if (type === 'error') {
+                    osc.type = 'sawtooth'; osc.frequency.setValueAtTime(150, audioCtx.currentTime);
+                    gain.gain.setValueAtTime(0.2, audioCtx.currentTime); osc.start(); osc.stop(audioCtx.currentTime + 0.25);
+                }
+            } catch (e) { console.log(e); }
+        }
+
+        function toggleAudio(status) {
+            gameState.audioEnabled = status;
+            showToast(status ? "🔊 Sonidos activados" : "🔇 Sonidos desactivados");
+        }
+
+        // TIEMPO
+        function startTimer() {
+            if (gameState.timerInterval) clearInterval(gameState.timerInterval);
+            gameState.timerInterval = setInterval(() => {
+                if (gameState.timeLeft <= 0) {
+                    clearInterval(gameState.timerInterval);
+                    alert("¡Tiempo terminado!"); restartEntireGame(); return;
+                }
+                gameState.timeLeft--;
+                let mins = Math.floor(gameState.timeLeft / 60);
+                let secs = gameState.timeLeft % 60;
+                document.getElementById('timer-display').innerText = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+            }, 1000);
+        }
+
+        // NAVEGACIÓN
+        function navigatePanel(index) {
+            gameState.currentStep = index;
+            document.querySelectorAll('.screen-panel').forEach((p, i) => p.classList.toggle('active', i === index));
+            document.querySelectorAll('.step-node').forEach((node) => {
+                let stepNum = parseInt(node.getAttribute('data-step'));
+                node.classList.toggle('active', stepNum === index);
+                node.classList.toggle('completed', stepNum < index);
+            });
+            document.getElementById('timeline-progress-fill').style.width = `${(index / 8) * 100}%`;
+            const labels = ["Inicio", "Misión 1", "Misión 2", "Misión 3", "Misión 4", "Misión 5", "Laboratorio", "Revisión", "Final"];
+            document.getElementById('mision-tag').innerText = `🚀 ${labels[index]}`;
+        }
+
+        function startAdventure() {
+            let nameInput = document.getElementById('student-name-input').value.trim();
+            if(!nameInput) { showToast("⚠️ Por favor escribe tu nombre.", false); return; }
+            gameState.studentName = nameInput;
+            startTimer();
+            navigatePanel(1);
+        }
+
+        function showToast(msg, isSuccess = true) {
+            let toast = document.getElementById('toast-notif');
+            toast.innerText = msg;
+            toast.style.background = isSuccess ? "rgba(0, 255, 136, 0.9)" : "rgba(255, 42, 109, 0.9)";
+            toast.style.color = isSuccess ? "#0a001f" : "#ffffff";
+            toast.style.display = "block";
+            setTimeout(() => { toast.style.display = "none"; }, 3000);
+        }
+
+        function showHint(missionNum, hintText) { showToast(hintText, true); }
+
+        function updateHUD() {
+            document.getElementById('score-display').innerText = gameState.score;
+            let hearts = ""; for(let i=0; i<3; i++) hearts += (i < gameState.lives) ? "❤️" : "🖤";
+            document.getElementById('life-display').innerText = hearts;
+        }
+
+        function checkDamage() {
+            gameState.lives--; updateHUD(); playSound('error');
+            if(gameState.lives <= 0) { alert("¡Te has quedado sin vidas! Volvamos a empezar."); restartEntireGame(); return true; }
+            return false;
+        }
+
+        function unlockInsignia(id, elementId) {
+            if (!gameState.insignias[id]) {
+                gameState.insignias[id] = true;
+                document.getElementById(elementId).classList.add('unlocked');
+                showToast(`🏆 ¡Insignia desbloqueada!`);
+            }
+        }
+
+        function selectOption(cardElement, missionIdx, val) {
+            let siblings = cardElement.parentNode.children;
+            for(let s of siblings) s.classList.remove('selected');
+            cardElement.classList.add('selected');
+            gameState.selectedOptions[missionIdx] = val;
+        }
+
+        // CONTROL DE VERIFICACIÓN DE MISIONES
+        function checkMission1() {
+            if(gameState.selectedOptions[1] === 'B') {
+                gameState.score += 20; updateHUD(); playSound('correct');
+                unlockInsignia('det', 'badge-det');
+                setTimeout(() => navigatePanel(2), 1500);
+            } else { showToast("❌ Incorrecto.", false); checkDamage(); }
+        }
+
+        // SOPA DE LETRAS 10x10 MATRIZ PRECOMPUTADA CON 8 PALABRAS
+        const wsGridData = [
+            ['D','A','D','O','X','W','Q','Z','A','B'],
+            ['K','F','R','P','Y','O','Y','O','C','D'],
+            ['B','A','L','O','N','L','M','P','E','F'],
+            ['T','I','T','E','R','E','S','W','G','H'],
+            ['C','A','R','R','O','K','P','M','I','J'],
+            ['O','T','R','O','M','P','O','V','K','L'],
+            ['W','X','P','A','T','I','N','D','M','N'],
+            ['E','F','G','H','L','E','G','O','O','P'],
+            ['Q','R','S','T','U','V','W','X','Y','Z'],
+            ['A','B','C','D','E','F','G','H','I','J']
+        ];
+        
+        const targetCoords = [
+            "0,0","0,1","0,2","0,3", // DADO
+            "1,4","1,5","1,6","1,7", // YOYO
+            "2,0","2,1","2,2","2,3","2,4", // BALON
+            "3,0","3,1","3,2","3,3","3,4","3,5","3,6", // TITERES
+            "4,0","4,1","4,2","4,3","4,4", // CARRO
+            "5,1","5,2","5,3","5,4","5,5","5,6", // TROMPO
+            "6,2","6,3","6,4","6,5","6,6", // PATIN
+            "7,4","7,5","7,6","7,7"  // LEGO
+        ];
+
+        let selectedCells = [];
+
+        function buildWordSearch() {
+            let container = document.getElementById('wordsearch-grid');
+            container.innerHTML = "";
+            for(let r=0; r<10; r++) {
+                for(let c=0; c<10; c++) {
+                    let cell = document.createElement('div');
+                    cell.className = "letter-cell"; cell.innerText = wsGridData[r][c];
+                    cell.setAttribute('data-coord', `${r},${c}`);
+                    cell.onclick = () => {
+                        if(cell.classList.contains('selected')) {
+                            cell.classList.remove('selected');
+                            selectedCells = selectedCells.filter(item => item !== `${r},${c}`);
+                        } else {
+                            cell.classList.add('selected'); selectedCells.push(`${r},${c}`);
+                        }
+                    };
+                    container.appendChild(cell);
+                }
+            }
+        }
+
+        function checkMission2() {
+            let allFound = targetCoords.every(c => selectedCells.includes(c));
+            if(allFound) {
+                gameState.score += 20; updateHUD(); playSound('correct');
+                unlockInsignia('exp', 'badge-exp');
+                ['dado','yoyo','balon','titeres','carro','trompo','patin','lego'].forEach(id=>document.getElementById(`w-${id}`).classList.add('found'));
+                setTimeout(() => navigatePanel(3), 1500);
+            } else { showToast("❌ Aún te faltan letras por descubrir.", false); checkDamage(); }
+        }
+
+        function checkMission3() {
+            if(gameState.selectedOptions[3] === 'B') {
+                gameState.score += 20; updateHUD(); playSound('correct');
+                unlockInsignia('nar', 'badge-nar');
+                setTimeout(() => navigatePanel(4), 1500);
+            } else { showToast("❌ Elige la opción de la naturaleza.", false); checkDamage(); }
+        }
+
+        // DRAG & DROP MISION 4
+        function setupDragAndDrop() {
+            document.querySelectorAll('.drag-item').forEach(item => {
+                item.addEventListener('dragstart', (e) => gameState.draggedItemId = e.target.id);
+            });
+            document.querySelectorAll('.drop-box').forEach(box => {
+                box.addEventListener('dragover', (e) => { e.preventDefault(); box.classList.add('hover'); });
+                box.addEventListener('dragleave', () => box.classList.remove('hover'));
+                box.addEventListener('drop', (e) => {
+                    e.preventDefault(); box.classList.remove('hover');
+                    let targetEl = document.getElementById(gameState.draggedItemId);
+                    if(targetEl) box.appendChild(targetEl);
+                });
+            });
+        }
+
+        function resetDragMission() {
+            let src = document.getElementById('source-drag-zone');
+            ['d-perro','d-gato','d-loro','d-manzana','d-platano','d-pizza'].forEach(id=> {
+                let el = document.getElementById(id); if(el) src.appendChild(el);
+            });
+        }
+
+        function checkMission4() {
+            let correctCount = 0;
+            document.querySelectorAll('.drop-box').forEach(box => {
+                let accept = box.getAttribute('data-accept');
+                box.querySelectorAll('.drag-item').forEach(ch => {
+                    if(ch.getAttribute('data-cat') === accept) correctCount++;
+                });
+            });
+            if(correctCount === 6) {
+                gameState.score += 20; updateHUD(); playSound('correct');
+                setTimeout(() => navigatePanel(5), 1500);
+            } else { showToast("❌ Ubicación errónea.", false); checkDamage(); }
+        }
+
+        // PALABRA INTRUSA MISION 5
+        function checkMission5() {
+            if(gameState.selectedOptions[5] === 'cuaderno') {
+                gameState.score += 20; updateHUD(); playSound('correct');
+                unlockInsignia('esc', 'badge-esc');
+                setTimeout(() => navigatePanel(6), 1500);
+            } else { showToast("❌ Error.", false); checkDamage(); }
+        }
+
+        // MANEJO DEL TALLER ESCRITO
+        function updateTallerSuggestions() {
+            let campo = document.getElementById('select-campo-taller').value;
+            let box = document.getElementById('suggestions-box');
+            let container = document.getElementById('suggestions-badges-container');
+            container.innerHTML = "";
+            if(campo && sugerenciasCampos[campo]) {
+                box.style.display = "block";
+                sugerenciasCampos[campo].forEach(w => {
+                    let b = document.createElement('span'); b.className = "hint-badge"; b.innerText = w;
+                    container.appendChild(b);
+                });
+            } else { box.style.display = "none"; }
+        }
+
+        function processTaller() {
+            let campo = document.getElementById('select-campo-taller').value;
+            let t = document.getElementById('input-title').value.trim();
+            let ini = document.getElementById('textarea-inicio').value.trim();
+            let nud = document.getElementById('textarea-nudo').value.trim();
+            let des = document.getElementById('textarea-desenlace').value.trim();
+            let ref = document.getElementById('textarea-reflexion').value.trim();
+
+            if(!campo || !t || !ini || !nud || !des || !ref) {
+                showToast("⚠️ Rellena todos los campos estructurales requeridos.", false); return;
+            }
+            gameState.storyData = { campo, t, h: document.getElementById('input-hero').value, s: document.getElementById('input-sidekick').value, p: document.getElementById('input-place').value, tm: document.getElementById('input-time').value, ini, nud, des, ref };
+            navigatePanel(7);
+        }
+
+        function toggleCheck(element) { let chk = element.querySelector('input[type="checkbox"]'); chk.checked = !chk.checked; }
+
+        function finishAdventure() {
+            unlockInsignia('mae', 'badge-mae'); clearInterval(gameState.timerInterval);
+            let code = "SEMANTICO-ORO-2026";
+            if (gameState.score < 90) code = "SEMANTICO-PLATA-2026";
+            
+            document.getElementById('cert-recipient-name').innerText = gameState.studentName;
+            document.getElementById('cert-score').innerText = gameState.score;
+            document.getElementById('cert-lives').innerText = `${gameState.lives}/3`;
+            document.getElementById('cert-secret-code').innerText = code;
+
+            let sd = gameState.storyData;
+            document.getElementById('compiled-story-box').innerHTML = `
+                <h3 style="color:var(--azul-electrico); text-align:center;">📖 ${sd.t}</h3>
+                <p><b>Categoría Semántica:</b> ${sd.campo}</p>
+                <p><b>🎬 Inicio:</b> ${sd.ini}</p>
+                <p><b>⚡ Nudo:</b> ${sd.nud}</p>
+                <p><b>🎉 Desenlace:</b> ${sd.des}</p>
+                <p style="margin-top:10px; border-top:1px dashed rgba(255,255,255,0.2); padding-top:10px;"><b>🤔 Reflexión:</b> ${sd.ref}</p>
+            `;
+            navigatePanel(8);
+        }
+
+        function downloadStory() {
+            let sd = gameState.storyData;
+            let out = `CUENTO: ${sd.t}\nAutor: ${gameState.studentName}\n\n[INICIO]\n${sd.ini}\n\n[NUDO]\n${sd.nud}\n\n[DESENLACE]\n${sd.des}`;
+            let blob = new Blob([out], { type: "text/plain;charset=utf-8" });
+            let link = document.createElement("a"); link.href = URL.createObjectURL(blob);
+            link.download = `Cuento_${gameState.studentName.replace(/\s+/g, '_')}.txt`; link.click();
+        }
+
+        function restartEntireGame() {
+            clearInterval(gameState.timerInterval);
+            location.reload();
+        }
+    </script>
+</body>
+</html>
